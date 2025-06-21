@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 FastAPI + MCP 템플릿 설정 스크립트
-- 새 프로젝트 생성
 - 기존 템플릿 커스터마이징
 - 백업 및 롤백 기능
 """
@@ -300,50 +299,7 @@ if __name__ == "__main__":
             print(f"❌ 파일 이동 실패: {e}")
             return False
 
-    def create_new_project(self, project_name: str, target_dir: Path, force: bool = False) -> bool:
-        """새 프로젝트 생성"""
-        try:
-            # 대상 디렉토리 확인
-            if target_dir.exists():
-                if not force:
-                    print(f"❌ 디렉토리가 이미 존재합니다: {target_dir}")
-                    print("--force 옵션을 사용하여 덮어쓸 수 있습니다.")
-                    return False
-                else:
-                    print(f"🗑️  기존 디렉토리를 삭제합니다: {target_dir}")
-                    shutil.rmtree(target_dir)
-            
-            # 현재 템플릿 복사
-            print(f"📁 템플릿을 복사합니다: {self.project_path} -> {target_dir}")
-            
-            shutil.copytree(
-                self.project_path, 
-                target_dir,
-                ignore=shutil.ignore_patterns(
-                    '__pycache__',
-                    '*.pyc',
-                    '.venv',
-                    'venv',
-                    '.git',
-                    '*.egg-info',
-                    'uv.lock',
-                    '.template_backup',
-                    '.template_archive'
-                )
-            )
-            
-            print(f"✅ 새 프로젝트가 생성되었습니다: {target_dir}")
-            print(f"\n📚 다음 단계:")
-            print(f"1. cd {target_dir}")
-            print(f"2. python setup_template.py --customize")
-            print(f"3. uv sync")
-            print(f"4. python run_server.py")
-            
-            return True
-            
-        except Exception as e:
-            print(f"❌ 프로젝트 생성 실패: {e}")
-            return False
+
 
     def customize_project(self) -> bool:
         """프로젝트 커스터마이징"""
@@ -419,8 +375,6 @@ def main():
         epilog="""
 사용 예시:
   python setup_template.py --customize                    # 현재 템플릿 커스터마이징
-  python setup_template.py --new my-project               # 새 프로젝트 생성
-  python setup_template.py --new my-project --force       # 강제로 새 프로젝트 생성
   python setup_template.py --restore                      # 백업에서 복원
         """
     )
@@ -431,27 +385,14 @@ def main():
         action="store_true",
         help="현재 템플릿을 커스터마이징"
     )
-    group.add_argument(
-        "--new",
-        metavar="PROJECT_NAME",
-        help="새 프로젝트 생성"
-    )
+
     group.add_argument(
         "--restore",
         action="store_true",
         help="백업에서 복원"
     )
     
-    parser.add_argument(
-        "--target-dir",
-        type=Path,
-        help="프로젝트를 생성할 디렉토리 (기본값: 현재 디렉토리/프로젝트명)"
-    )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="기존 디렉토리가 있으면 덮어쓰기"
-    )
+
     
     args = parser.parse_args()
     
@@ -467,22 +408,7 @@ def main():
             
             success = setup.customize_project()
             
-        elif args.new:
-            # 새 프로젝트 생성
-            if args.target_dir:
-                target_dir = args.target_dir / args.new
-            else:
-                target_dir = current_path / args.new
-            
-            print("🚀 새 FastAPI + MCP 프로젝트 생성")
-            print("=" * 50)
-            print(f"프로젝트명: {args.new}")
-            print(f"생성 위치: {target_dir}")
-            print(f"덮어쓰기: {'예' if args.force else '아니오'}")
-            print()
-            
-            success = setup.create_new_project(args.new, target_dir, args.force)
-            
+        
         elif args.restore:
             # 백업에서 복원
             print("🔄 백업에서 복원")
