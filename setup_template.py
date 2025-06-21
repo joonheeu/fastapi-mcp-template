@@ -361,8 +361,9 @@ if __name__ == "__main__":
         print("2. python run_server.py - 서버 실행")
         print("3. 코드 수정 및 개발 시작")
         
-        print("\n🔄 롤백 방법:")
-        print(f"python -c \"from pathlib import Path; from setup_template import TemplateSetup; TemplateSetup(Path('.')).restore_backup()\"")
+        print("\n🔄 복원 방법:")
+        print("변경사항을 되돌리려면 다음 명령어를 사용하세요:")
+        print("python setup_template.py --restore")
         
         return True
 
@@ -374,19 +375,18 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 사용 예시:
-  python setup_template.py --customize                    # 현재 템플릿 커스터마이징
+  python setup_template.py                                # 템플릿 커스터마이징 (기본)
+  python setup_template.py --customize                    # 명시적으로 커스터마이징
   python setup_template.py --restore                      # 백업에서 복원
         """
     )
     
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument(
+    parser.add_argument(
         "--customize",
         action="store_true",
-        help="현재 템플릿을 커스터마이징"
+        help="현재 템플릿을 커스터마이징 (기본 동작)"
     )
-
-    group.add_argument(
+    parser.add_argument(
         "--restore",
         action="store_true",
         help="백업에서 복원"
@@ -400,20 +400,18 @@ def main():
     setup = TemplateSetup(current_path)
     
     try:
-        if args.customize:
-            # 현재 템플릿 커스터마이징
+        if args.restore:
+            # 백업에서 복원
+            print("🔄 백업에서 복원")
+            print("=" * 50)
+            success = setup.restore_backup()
+        else:
+            # 기본 동작: 현재 템플릿 커스터마이징
             if not (current_path / "pyproject.toml").exists():
                 print("❌ 오류: 템플릿 루트 디렉토리에서 실행해주세요.")
                 sys.exit(1)
             
             success = setup.customize_project()
-            
-        
-        elif args.restore:
-            # 백업에서 복원
-            print("🔄 백업에서 복원")
-            print("=" * 50)
-            success = setup.restore_backup()
         
         if success:
             print("\n✅ 작업이 성공적으로 완료되었습니다!")
