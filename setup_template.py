@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -230,6 +231,244 @@ class TemplateSetup:
         """kebab-case를 UPPER_SNAKE_CASE로 변환"""
         return text.replace('-', '_').upper()
 
+    def create_gitignore(self) -> bool:
+        """기본 .gitignore 파일 생성"""
+        try:
+            gitignore_path = self.project_path / ".gitignore"
+            
+            # 이미 .gitignore가 있으면 건드리지 않음
+            if gitignore_path.exists():
+                print("ℹ️  .gitignore 파일이 이미 존재합니다.")
+                return True
+            
+            gitignore_content = """# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually these files are written by a python script from a template
+#  before PyInstaller builds the exe, so as to inject date/other infos into it.
+*.manifest
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+__pypackages__/
+
+# Celery stuff
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+logs/
+*.log
+.template_backup/
+.template_archive/
+
+# uv
+.python-version
+"""
+            
+            gitignore_path.write_text(gitignore_content, encoding='utf-8')
+            print("✅ .gitignore 파일이 생성되었습니다.")
+            return True
+            
+        except Exception as e:
+            print(f"❌ .gitignore 파일 생성 실패: {e}")
+            return False
+
+    def run_git_command(self, command: list[str]) -> bool:
+        """Git 명령어 실행"""
+        try:
+            result = subprocess.run(
+                command,
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            return True
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Git 명령어 실행 실패: {' '.join(command)}")
+            print(f"   오류: {e.stderr.strip()}")
+            return False
+        except FileNotFoundError:
+            print("❌ Git이 설치되어 있지 않습니다.")
+            return False
+
+    def is_git_repository(self) -> bool:
+        """현재 디렉토리가 Git 저장소인지 확인"""
+        return (self.project_path / ".git").exists()
+
+    def init_git_repository(self) -> bool:
+        """Git 저장소 초기화"""
+        try:
+            print("🔧 Git 저장소를 초기화합니다...")
+            
+            # 이미 Git 저장소인지 확인
+            if self.is_git_repository():
+                print("ℹ️  이미 Git 저장소로 초기화되어 있습니다.")
+                return True
+            
+            # Git 초기화
+            if not self.run_git_command(["git", "init"]):
+                return False
+            
+            # 기본 브랜치를 main으로 설정
+            if not self.run_git_command(["git", "branch", "-M", "main"]):
+                print("⚠️  기본 브랜치 설정 실패 (계속 진행)")
+            
+            # .gitignore 생성
+            self.create_gitignore()
+            
+            # 모든 파일 추가
+            if not self.run_git_command(["git", "add", "."]):
+                return False
+            
+            # 초기 커밋 생성
+            commit_message = "Initial commit: FastAPI + MCP project setup"
+            if not self.run_git_command(["git", "commit", "-m", commit_message]):
+                return False
+            
+            print("✅ Git 저장소 초기화 완료!")
+            print("   - 초기 커밋 생성됨")
+            print("   - 기본 브랜치: main")
+            print("   - .gitignore 파일 생성됨")
+            
+            return True
+            
+        except Exception as e:
+            print(f"❌ Git 저장소 초기화 실패: {e}")
+            return False
+
     def move_template_files(self) -> bool:
         """템플릿 관련 파일들을 별도 폴더로 이동"""
         try:
@@ -299,9 +538,7 @@ if __name__ == "__main__":
             print(f"❌ 파일 이동 실패: {e}")
             return False
 
-
-
-    def customize_project(self) -> bool:
+    def customize_project(self, skip_git: bool = False) -> bool:
         """프로젝트 커스터마이징"""
         print("🚀 FastAPI + MCP 프로젝트 커스터마이징")
         print("=" * 50)
@@ -351,6 +588,14 @@ if __name__ == "__main__":
         if not self.update_all_files(project_info):
             return False
         
+        # Git 저장소 초기화
+        if not skip_git and self.get_yes_no("\n🔧 Git 저장소를 초기화하시겠습니까?", True):
+            git_success = self.init_git_repository()
+            if not git_success:
+                print("⚠️  Git 초기화에 실패했지만 프로젝트 설정은 완료되었습니다.")
+        elif skip_git:
+            print("\nℹ️  Git 초기화를 건너뜁니다.")
+        
         # 템플릿 파일 정리
         if self.get_yes_no("\n🧹 템플릿 관련 파일들을 정리하시겠습니까?", True):
             self.move_template_files()
@@ -360,6 +605,13 @@ if __name__ == "__main__":
         print("1. uv sync - 의존성 설치")
         print("2. python run_server.py - 서버 실행")
         print("3. 코드 수정 및 개발 시작")
+        
+        if self.is_git_repository():
+            print("\n📝 Git 사용법:")
+            print("- git status - 변경사항 확인")
+            print("- git add . && git commit -m 'message' - 변경사항 커밋")
+            print("- git remote add origin <repository-url> - 원격 저장소 연결")
+            print("- git push -u origin main - 원격 저장소에 푸시")
         
         print("\n🔄 복원 방법:")
         print("변경사항을 되돌리려면 다음 명령어를 사용하세요:")
@@ -377,6 +629,7 @@ def main():
 사용 예시:
   python setup_template.py                                # 템플릿 커스터마이징 (기본)
   python setup_template.py --customize                    # 명시적으로 커스터마이징
+  python setup_template.py --no-git                       # Git 초기화 없이 커스터마이징
   python setup_template.py --restore                      # 백업에서 복원
         """
     )
@@ -390,6 +643,11 @@ def main():
         "--restore",
         action="store_true",
         help="백업에서 복원"
+    )
+    parser.add_argument(
+        "--no-git",
+        action="store_true",
+        help="Git 저장소 초기화 건너뛰기"
     )
     
 
@@ -411,7 +669,7 @@ def main():
                 print("❌ 오류: 템플릿 루트 디렉토리에서 실행해주세요.")
                 sys.exit(1)
             
-            success = setup.customize_project()
+            success = setup.customize_project(skip_git=args.no_git)
         
         if success:
             print("\n✅ 작업이 성공적으로 완료되었습니다!")
