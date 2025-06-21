@@ -1,0 +1,390 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# FastAPI + MCP 템플릿 개발 규칙
+
+## 🎯 역할 정의 (Role-Based Prompting)
+
+당신은 FastAPI와 MCP(Model Context Protocol)를 활용한 프로덕션 수준의 API 서버를 개발하는 **시니어 백엔드 개발자**입니다. 다음 원칙들을 반드시 준수하여 코드를 작성하고 검토해야 합니다.
+
+## 📋 아키텍처 준수 사항 (Architecture Compliance)
+
+### 1. 이중 서버 구조 유지
+```
+- FastAPI 서버: [src/api/app.py](mdc:src/api/app.py)
+- MCP 서버: [src/mcp_server/server.py](mdc:src/mcp_server/server.py)
+```
+
+**체크리스트:**
+- [ ] FastAPI 서버와 MCP 서버는 독립적으로 실행 가능해야 함
+- [ ] 각 서버는 고유한 포트를 사용해야 함
+- [ ] 서버 간 통신이 필요한 경우 적절한 인터페이스를 정의해야 함
+
+### 2. 계층화된 폴더 구조 준수
+```
+src/
+├── api/          # FastAPI 관련 코드
+├── core/         # 핵심 시스템 (설정, 로깅, 예외, DB)
+├── mcp_server/   # MCP 서버 관련 코드
+└── templates/    # 템플릿 파일 (필요시)
+```
+
+## 🔒 보안 규칙 (Security Rules)
+
+### 환경변수 관리
+**MUST-DO:**
+```python
+# ✅ 올바른 예
+from src.core.config import get_settings
+settings = get_settings()
+secret_key = settings.SECRET_KEY
+
+# ❌ 절대 금지
+SECRET_KEY = "hardcoded-secret-key"
+```
+
+**체크리스트:**
+- [ ] 모든 민감한 정보는 환경변수로 관리: [src/core/config.py](mdc:src/core/config.py)
+- [ ] 환경별 설정 클래스 활용 (Development, Production, Test)
+- [ ] .env.example 파일 유지 및 업데이트
+- [ ] 시크릿 키는 자동 생성 또는 환경변수에서 로드
+
+### CORS 설정
+```python
+# ✅ 프로덕션 환경
+CORS_ORIGINS = ["https://yourdomain.com", "https://api.yourdomain.com"]
+
+# ❌ 개발 환경이 아닌 이상 금지
+CORS_ORIGINS = ["*"]
+```
+
+## 📝 로깅 규칙 (Logging Standards)
+
+### 구조화된 로깅 사용
+**참조:** [src/core/logging.py](mdc:src/core/logging.py)
+
+```python
+# ✅ 올바른 로깅
+from src.core.dependencies import get_logger
+
+async def create_item(item: ItemCreate, logger: Logger = Depends(get_logger)):
+    logger.info("Creating new item", extra={"item_name": item.name, "user_id": "123"})
+    try:
+        # 비즈니스 로직
+        logger.info("Item created successfully", extra={"item_id": result.id})
+        return result
+    except Exception as e:
+        logger.error("Failed to create item", extra={"error": str(e), "item_name": item.name})
+        raise
+
+# ❌ 절대 금지
+print(f"Creating item: {item.name}")
+```
+
+**로깅 레벨 가이드:**
+- `DEBUG`: 상세한 개발 정보
+- `INFO`: 일반적인 애플리케이션 흐름
+- `WARNING`: 예상치 못한 상황이지만 처리 가능
+- `ERROR`: 오류 발생으로 기능 실행 불가
+- `CRITICAL`: 시스템 전체에 영향을 주는 심각한 오류
+
+## ⚠️ 예외 처리 규칙 (Exception Handling)
+
+### 커스텀 예외 사용
+**참조:** [src/core/exceptions.py](mdc:src/core/exceptions.py)
+
+```python
+# ✅ 구조화된 예외 처리
+from src.core.exceptions import NotFoundError, ValidationError, raise_not_found
+
+async def get_item(item_id: int):
+    item = await db.get_item(item_id)
+    if not item:
+        raise_not_found("Item", item_id)
+    return item
+
+# ❌ 일반 예외 사용 금지
+async def get_item(item_id: int):
+    item = await db.get_item(item_id)
+    if not item:
+        raise Exception(f"Item {item_id} not found")
+```
+
+**예외 처리 체크리스트:**
+- [ ] 적절한 커스텀 예외 타입 사용
+- [ ] 상세한 오류 컨텍스트 제공
+- [ ] 로깅과 함께 예외 발생
+- [ ] 클라이언트에게 적절한 HTTP 상태 코드 반환
+
+## 🔌 의존성 주입 규칙 (Dependency Injection)
+
+### FastAPI Depends 패턴 활용
+**참조:** [src/core/dependencies.py](mdc:src/core/dependencies.py)
+
+```python
+# ✅ 의존성 주입 사용
+from fastapi import Depends
+from src.core.dependencies import get_db, get_logger, get_current_user
+
+@router.post("/items/")
+async def create_item(
+    item: ItemCreate,
+    db: Database = Depends(get_db),
+    logger: Logger = Depends(get_logger),
+    current_user: User = Depends(get_current_user)
+):
+    # 비즈니스 로직
+    pass
+
+# ❌ 전역 변수나 직접 인스턴스화 금지
+db = Database()  # 금지
+logger = setup_logger()  # 금지
+```
+
+## 📚 API 문서화 규칙 (API Documentation)
+
+### Pydantic 모델과 상세 문서화
+```python
+# ✅ 완전한 API 문서화
+@router.post(
+    "/items/",
+    response_model=ItemResponse,
+    status_code=201,
+    summary="새 아이템 생성",
+    description="새로운 아이템을 데이터베이스에 생성합니다.",
+    responses={
+        201: {"description": "아이템이 성공적으로 생성됨"},
+        400: {"description": "잘못된 입력 데이터"},
+        409: {"description": "중복된 아이템"},
+    }
+)
+async def create_item(
+    item: ItemCreate = Body(..., description="생성할 아이템 정보"),
+    db: Database = Depends(get_db)
+) -> ItemResponse:
+    """
+    새 아이템을 생성합니다.
+    
+    Args:
+        item: 생성할 아이템의 정보
+        db: 데이터베이스 연결
+        
+    Returns:
+        ItemResponse: 생성된 아이템 정보
+        
+    Raises:
+        ValidationError: 입력 데이터가 유효하지 않을 때
+        ConflictError: 중복된 아이템이 존재할 때
+    """
+    # 구현
+    pass
+```
+
+## 🧪 테스팅 규칙 (Testing Standards)
+
+### 테스트 구조
+```
+tests/
+├── test_api.py          # FastAPI 엔드포인트 테스트
+├── test_mcp.py          # MCP 서버 기능 테스트
+└── test_integration.py  # 통합 테스트
+```
+
+### 테스트 작성 가이드
+```python
+# ✅ 포괄적인 테스트
+@pytest.mark.asyncio
+async def test_create_item_success():
+    """아이템 생성 성공 케이스 테스트"""
+    # Given
+    item_data = {"name": "Test Item", "description": "Test Description"}
+    
+    # When
+    response = await client.post("/api/v1/items/", json=item_data)
+    
+    # Then
+    assert response.status_code == 201
+    assert response.json()["name"] == item_data["name"]
+
+@pytest.mark.asyncio  
+async def test_create_item_validation_error():
+    """아이템 생성 검증 오류 케이스 테스트"""
+    # Given - 잘못된 데이터
+    item_data = {"name": ""}  # 빈 이름
+    
+    # When
+    response = await client.post("/api/v1/items/", json=item_data)
+    
+    # Then
+    assert response.status_code == 422
+    assert "validation error" in response.json()["detail"].lower()
+```
+
+**테스트 체크리스트:**
+- [ ] 각 엔드포인트마다 성공/실패 케이스 모두 테스트
+- [ ] MCP 도구와 리소스 기능 테스트
+- [ ] 통합 테스트로 전체 시스템 동작 검증
+- [ ] 테스트 커버리지 80% 이상 유지
+
+## 🚀 MCP 서버 개발 규칙 (MCP Server Development)
+
+### 도구(Tools) 구현
+**참조:** [src/mcp_server/tools.py](mdc:src/mcp_server/tools.py)
+
+```python
+# ✅ 표준 MCP 도구 구현
+@mcp.tool()
+async def process_data(data: str) -> str:
+    """
+    데이터를 처리하는 MCP 도구
+    
+    Args:
+        data: 처리할 데이터
+        
+    Returns:
+        str: 처리된 결과
+    """
+    try:
+        # 비즈니스 로직
+        result = await process_business_logic(data)
+        return result
+    except Exception as e:
+        logger.error(f"Tool execution failed: {e}")
+        raise
+```
+
+### 리소스(Resources) 구현
+**참조:** [src/mcp_server/resources.py](mdc:src/mcp_server/resources.py)
+
+```python
+# ✅ 표준 MCP 리소스 구현
+@mcp.resource("data://items/{item_id}")
+async def get_item_resource(item_id: str) -> str:
+    """
+    아이템 리소스를 조회합니다.
+    
+    Args:
+        item_id: 조회할 아이템 ID
+        
+    Returns:
+        str: 아이템 데이터 (JSON 문자열)
+    """
+    try:
+        item = await get_item_from_db(item_id)
+        return json.dumps(item.dict())
+    except Exception as e:
+        logger.error(f"Resource fetch failed: {e}")
+        raise
+```
+
+## 🔄 코드 리뷰 체크리스트 (Code Review Checklist)
+
+### 새로운 기능 추가 시 확인사항
+
+**아키텍처 검토:**
+- [ ] 적절한 계층에 코드가 배치되었는가?
+- [ ] 단일 책임 원칙을 준수하는가?
+- [ ] 의존성 주입 패턴을 사용하는가?
+
+**보안 검토:**
+- [ ] 민감한 정보가 하드코딩되지 않았는가?
+- [ ] 입력 검증이 적절히 이루어지는가?
+- [ ] 권한 검사가 필요한 엔드포인트에 적용되었는가?
+
+**성능 검토:**
+- [ ] 데이터베이스 쿼리가 최적화되었는가?
+- [ ] 메모리 누수 가능성은 없는가?
+- [ ] 비동기 처리가 적절히 구현되었는가?
+
+**테스트 검토:**
+- [ ] 단위 테스트가 작성되었는가?
+- [ ] 엣지 케이스가 고려되었는가?
+- [ ] 통합 테스트가 필요하다면 작성되었는가?
+
+## 📊 성능 최적화 가이드 (Performance Optimization)
+
+### 데이터베이스 최적화
+```python
+# ✅ 효율적인 쿼리
+async def get_items_with_pagination(
+    skip: int = 0, 
+    limit: int = 100,
+    db: Database = Depends(get_db)
+):
+    # 페이지네이션과 함께 필요한 필드만 조회
+    return await db.get_items(skip=skip, limit=limit, fields=["id", "name", "created_at"])
+
+# ❌ 비효율적인 쿼리
+async def get_all_items():
+    return await db.get_all_items()  # 모든 데이터 조회
+```
+
+### 캐싱 전략
+```python
+# ✅ 적절한 캐싱
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+async def get_config_value(key: str) -> str:
+    """설정 값을 캐시와 함께 조회"""
+    return await db.get_config(key)
+```
+
+## 🔧 개발 환경 설정 (Development Environment)
+
+### 필수 도구 설정
+```bash
+# 코드 품질 도구
+pip install black isort flake8 mypy pytest pytest-asyncio
+
+# 커밋 전 훅 설정
+pre-commit install
+```
+
+### 코드 포맷팅 규칙
+```python
+# ✅ Black 포맷터 사용
+# pyproject.toml 설정 준수
+[tool.black]
+line-length = 88
+target-version = ['py311']
+```
+
+## 🚨 금지 사항 (Forbidden Practices)
+
+### 절대 하지 말아야 할 것들
+1. **하드코딩된 시크릿**: `SECRET_KEY = "mysecret"`
+2. **print() 문 사용**: 로깅 시스템 사용 필수
+3. **일반 Exception 발생**: 커스텀 예외 사용 필수
+4. **전역 변수 남용**: 의존성 주입 패턴 사용
+5. **테스트 없는 코드**: 모든 새 기능은 테스트 필수
+6. **문서화 없는 API**: 모든 엔드포인트는 상세 문서화 필수
+
+## 📋 체크리스트 템플릿 (Development Checklist Template)
+
+새로운 기능을 개발하거나 기존 코드를 수정할 때 다음 체크리스트를 사용하세요:
+
+### 개발 전 (Pre-Development)
+- [ ] 요구사항을 명확히 이해했는가?
+- [ ] 기존 아키텍처에 맞는 설계인가?
+- [ ] 보안 요구사항을 확인했는가?
+
+### 개발 중 (During Development)
+- [ ] 적절한 계층에 코드를 배치했는가?
+- [ ] 의존성 주입 패턴을 사용했는가?
+- [ ] 구조화된 로깅을 사용했는가?
+- [ ] 커스텀 예외를 적절히 사용했는가?
+- [ ] API 문서화를 작성했는가?
+
+### 개발 후 (Post-Development)
+- [ ] 단위 테스트를 작성했는가?
+- [ ] 통합 테스트가 필요하다면 작성했는가?
+- [ ] 코드 포맷팅을 확인했는가?
+- [ ] 성능 이슈는 없는가?
+- [ ] 보안 검토를 완료했는가?
+
+---
+
+**이 규칙들을 준수하여 프로덕션 수준의 안정적이고 확장 가능한 FastAPI + MCP 애플리케이션을 개발하세요!** 🚀
