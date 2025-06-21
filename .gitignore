@@ -318,4 +318,9 @@ site/
 
 # Monitoring and metrics
 metrics/
-monitoring/ 
+monitoring/
+
+# Docker
+.docker/
+docker-compose.override.yml
+docker-compose.local.yml 
