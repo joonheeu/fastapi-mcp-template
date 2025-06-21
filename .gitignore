@@ -249,7 +249,7 @@ local_config.py
 config_local.py
 
 # Docker
-.dockerignore
+# .dockerignore
 
 # Dependency directories
 node_modules/
@@ -314,6 +314,7 @@ temp/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 *.suo
 *.ntvs*
