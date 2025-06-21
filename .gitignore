@@ -137,13 +137,9 @@ dmypy.json
 cython_debug/
 
 # PyCharm
-# .idea/
-# misc.xml
-# deploymentTargetDropDown.xml
-# render.experimental.xml
+.idea/
 
 # Local development
-.idea/
 *.swp
 *.swo
 *~
@@ -225,64 +221,6 @@ config_local.py
 # Docker
 # .dockerignore
 
-# Dependency directories
-node_modules/
-jspm_packages/
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Optional stylelint cache
-.stylelintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env.test
-.env.production
-.env.local
-
-# parcel-bundler cache
-.cache
-.parcel-cache
-
-# Next.js build output
-.next
-out
-
-# Nuxt.js build / generate output
-.nuxt
-dist
-
-# Gatsby files
-.cache/
-# public
-
-# Storybook build outputs
-.out
-.storybook-out
-storybook-static
-
-# Temporary folders
-tmp/
-temp/
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -294,11 +232,6 @@ temp/
 *.sln
 *.sw?
 
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Template backup directory
+.template_backup/
+
