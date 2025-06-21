@@ -6,7 +6,7 @@ environment variable support, and validation for all application settings.
 """
 
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, validator
 from typing import Optional, List, Union
 import os
 import secrets
@@ -72,7 +72,7 @@ class Settings(BaseSettings):
     )
     mcp_transport: str = Field(
         default="sse",
-        pattern="^(stdio|sse|streamable-http)$",
+        regex="^(stdio|sse|streamable-http)$",
         description="MCP transport protocol"
     )
     
@@ -102,21 +102,21 @@ class Settings(BaseSettings):
     )
     
     # CORS Settings - More secure defaults
-    cors_origins: str = Field(
-        default="http://localhost:3000,http://localhost:8080",
-        description="Allowed CORS origins (comma-separated)"
+    cors_origins: Union[List[str], str] = Field(
+        default=["http://localhost:3000", "http://localhost:8080"],
+        description="Allowed CORS origins"
     )
     cors_credentials: bool = Field(
         default=True,
         description="Allow credentials in CORS requests"
     )
-    cors_methods: str = Field(
-        default="GET,POST,PUT,DELETE,OPTIONS",
-        description="Allowed CORS methods (comma-separated)"
+    cors_methods: Union[List[str], str] = Field(
+        default=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        description="Allowed CORS methods"
     )
-    cors_headers: str = Field(
-        default="*",
-        description="Allowed CORS headers (comma-separated)"
+    cors_headers: Union[List[str], str] = Field(
+        default=["*"],
+        description="Allowed CORS headers"
     )
     
     # External APIs
@@ -132,7 +132,7 @@ class Settings(BaseSettings):
     # Logging Settings
     log_level: str = Field(
         default="INFO",
-        pattern="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$",
+        regex="^(DEBUG|INFO|WARNING|ERROR|CRITICAL)$",
         description="Logging level"
     )
     log_format: str = Field(
@@ -150,31 +150,33 @@ class Settings(BaseSettings):
         description="Enable testing mode"
     )
     
-    @property
-    def cors_origins_list(self) -> List[str]:
-        """Get CORS origins as a list."""
-        if isinstance(self.cors_origins, str):
-            return [origin.strip() for origin in self.cors_origins.split(',') if origin.strip()]
-        return self.cors_origins
+    @validator('cors_origins', pre=True)
+    def parse_cors_origins(cls, v):
+        """Parse CORS origins from string or list."""
+        if isinstance(v, str):
+            # Split comma-separated string into list
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     
-    @property
-    def cors_methods_list(self) -> List[str]:
-        """Get CORS methods as a list."""
-        if isinstance(self.cors_methods, str):
-            return [method.strip() for method in self.cors_methods.split(',') if method.strip()]
-        return self.cors_methods
+    @validator('cors_methods', pre=True)
+    def parse_cors_methods(cls, v):
+        """Parse CORS methods from string or list."""
+        if isinstance(v, str):
+            # Split comma-separated string into list
+            return [method.strip() for method in v.split(',') if method.strip()]
+        return v
     
-    @property
-    def cors_headers_list(self) -> List[str]:
-        """Get CORS headers as a list."""
-        if isinstance(self.cors_headers, str):
-            if self.cors_headers.strip() == "*":
+    @validator('cors_headers', pre=True)
+    def parse_cors_headers(cls, v):
+        """Parse CORS headers from string or list."""
+        if isinstance(v, str):
+            # Split comma-separated string into list, or return ["*"] for wildcard
+            if v.strip() == "*":
                 return ["*"]
-            return [header.strip() for header in self.cors_headers.split(',') if header.strip()]
-        return self.cors_headers
+            return [header.strip() for header in v.split(',') if header.strip()]
+        return v
     
-    @field_validator('secret_key')
-    @classmethod
+    @validator('secret_key')
     def validate_secret_key(cls, v):
         """Validate that secret key is not the default insecure value."""
         if v == "your-secret-key-change-this-in-production":
@@ -199,15 +201,12 @@ class Settings(BaseSettings):
         """Check if running in testing environment."""
         return self.environment.lower() == "test" or self.testing
     
-    model_config = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-        "extra": "ignore",
-        "env_parse_none_str": "null",
-        "env_parse_enums": True,
-        "env_nested_delimiter": "__",
-    }
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
+        # Allow extra fields for flexibility
+        extra = "ignore"
 
 
 class DevelopmentSettings(Settings):
@@ -222,7 +221,14 @@ class DevelopmentSettings(Settings):
     log_level: str = "DEBUG"
     
     # More permissive CORS for development
-    cors_origins: str = "http://localhost:3000,http://localhost:3001,http://localhost:8080,http://localhost:8081,http://127.0.0.1:3000,http://127.0.0.1:8080"
+    cors_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://localhost:8080",
+        "http://localhost:8081",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:8080"
+    ]
 
 
 class ProductionSettings(Settings):
@@ -237,10 +243,9 @@ class ProductionSettings(Settings):
     log_level: str = "WARNING"
     
     # Strict CORS settings for production
-    cors_origins: str = ""  # Must be explicitly set via environment
+    cors_origins: List[str] = []  # Must be explicitly set via environment
     
-    @field_validator('secret_key')
-    @classmethod
+    @validator('secret_key')
     def validate_production_secret_key(cls, v):
         """Ensure secret key is properly set in production."""
         if not v or len(v) < 32:
@@ -250,8 +255,7 @@ class ProductionSettings(Settings):
             )
         return v
     
-    @field_validator('cors_origins')
-    @classmethod
+    @validator('cors_origins')
     def validate_production_cors(cls, v):
         """Ensure CORS origins are explicitly configured in production."""
         if not v:
@@ -281,7 +285,7 @@ class TestSettings(Settings):
     database_echo: bool = True
     
     # Permissive CORS for testing
-    cors_origins: str = "*"
+    cors_origins: List[str] = ["*"]
 
 
 def get_settings() -> Settings:

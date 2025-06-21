@@ -1,0 +1,21 @@
+{
+  "backup_time": "2025-06-21T10:21:05.784864",
+  "original_files": [
+    "pyproject.toml",
+    "README.md",
+    ".cursor/mcp.json",
+    "src/core/config.py",
+    "src/core/models.py",
+    "src/api/app.py",
+    "run_api_server.py",
+    "run_mcp_server.py",
+    "run_server.py",
+    "run_docker.py",
+    "Dockerfile",
+    "docker-compose.yml",
+    ".dockerignore",
+    "examples/api_usage.py",
+    "tests/test_api.py",
+    "docs/TEMPLATE_GUIDE.md"
+  ]
+}
